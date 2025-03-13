@@ -11,7 +11,7 @@ app.use(cors());
 
 // Serve the smokers.html page
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'smokers.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Keyword-based search route with 5-mile radius
