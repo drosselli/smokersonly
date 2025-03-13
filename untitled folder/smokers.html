@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Find Cheap Cigarettes Near You | Cigarette Price Finder</title>
+  <meta name="description" content="Easily find cheap cigarette prices near you. Compare local stores, view estimated costs, and locate nearby cigarette retailers fast.">
+  <meta name="keywords" content="cheap cigarettes, cigarette prices near me, where to buy cigarettes, cigarette store locator, cigarette cost finder">
+  <meta name="author" content="Cigarette Price Finder">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to bottom, #87CEEB, #FFE4B5);
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      padding: 20px;
+      text-align: center;
+    }
+    button, select {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 10px;
+    }
+    #sortSelect {
+      display: none;
+    }
+    #spinner {
+  display: none;
+  margin: 20px auto;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: conic-gradient(
+    #FF6347 0% 20%, 
+    #FFD700 20% 40%, 
+    #32CD32 40% 60%, 
+    #1E90FF 60% 80%, 
+    #FF69B4 80% 100%
+  );
+  position: relative;
+  animation: spin 1s linear infinite;
+  box-shadow: inset -4px -4px 8px rgba(0, 0, 0, 0.3), 4px 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+#spinner::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+    table {
+      width: 100%;
+      max-width: 800px;
+      margin-top: 20px;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+      word-wrap: break-word;
+    }
+    th {
+      background-color: #f0f8ff;
+    }
+    th, td {
+      width: 25%;
+    }
+    #pagination {
+      margin-top: 20px;
+    }
+    #map {
+      width: 100%;
+      height: 400px;
+      margin-top: 20px;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Find Cheap Cigarettes Near You</h1>
+  <p>Click below to locate nearby stores and check cigarette prices:</p>
+
+  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+    <button onclick="getLocation()">Save $$$ on Smokes!</button>
+    <select id="sortSelect" onchange="sortResults()" style="display: none;">
+      <option value="price" selected>Sort by Price (Low to High)</option>
+      <option value="distance">Sort by Distance</option>
+    </select>
+  </div>
+
+  <div id="spinner"></div>
+  <div id="prices">Finding your location...</div>
+  <div id="pagination"></div>
+  <div id="map"></div>
+
+  <script>
+    let results = [];
+    let currentPage = 1;
+    const resultsPerPage = 5;
+    let map;
+    let markers = [];
+
+    function getLocation() {
+      document.getElementById('spinner').style.display = 'block';
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(searchNearbyStores, showError);
+      } else {
+        document.getElementById('prices').innerText = "Geolocation not supported.";
+        document.getElementById('spinner').style.display = 'none';
+      }
+    }
+
+    function searchNearbyStores(position) {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+      const proxyURL = `/places?lat=${lat}&lon=${lon}`;
+
+      fetch(proxyURL)
+        .then(response => response.json())
+        .then(data => {
+          document.getElementById('spinner').style.display = 'none';
+          results = data.results.map((store, index) => ({
+            id: index,
+            lat: store.geometry.location.lat,
+            lon: store.geometry.location.lng,
+            name: store.name,
+            address: store.vicinity, // Update this if you have separate street, city, and zip from the API
+            price: (6 + Math.random() * 4).toFixed(2),
+            distance: getDistance(lat, lon, store.geometry.location.lat, store.geometry.location.lng).toFixed(2)
+          }));
+          sortResults();
+          document.getElementById('sortSelect').style.display = 'inline-block';
+          if (!map) initMap(lat, lon);
+          addMarkers();
+        })
+        .catch(() => {
+          document.getElementById('spinner').style.display = 'none';
+          document.getElementById('prices').innerText = "Error fetching nearby stores.";
+        });
+    }
+
+    function displayResults() {
+      const start = (currentPage - 1) * resultsPerPage;
+      const end = start + resultsPerPage;
+      const pageResults = results.slice(start, end);
+
+      if (pageResults.length === 0) {
+        document.getElementById('prices').innerHTML = "<p>No nearby stores found.</p>";
+        return;
+      }
+
+      let table = `<table><tr><th>Store Name</th><th>Address</th><th>Price</th><th>Distance</th></tr>`;
+      pageResults.forEach((store, index) => {
+        table += `<tr>
+          <td><a href="#" onclick="focusOnStore(${start + index}); return false;">${store.name}</a></td>
+          <td>${store.address}</td>
+          <td>$${store.price}</td>
+          <td>${store.distance} miles</td>
+        </tr><tr><td colspan='4'><hr></td></tr>`;
+      });
+      table += `</table>`;
+      document.getElementById('prices').innerHTML = table;
+
+      document.getElementById('pagination').innerHTML = `<button onclick="prevPage()" ${currentPage === 1 ? 'disabled' : ''}>Previous</button> <button onclick="nextPage()" ${currentPage * resultsPerPage >= results.length ? 'disabled' : ''}>Next</button>`;
+    }
+
+    function focusOnStore(index) {
+      const store = results[index];
+      map.setCenter({ lat: parseFloat(store.lat), lng: parseFloat(store.lon) });
+      map.setZoom(15);
+      google.maps.event.trigger(markers[index], 'mouseover');
+    }
+
+    function nextPage() {
+      if (currentPage < Math.ceil(results.length / resultsPerPage)) {
+        currentPage++;
+        displayResults();
+      }
+    }
+
+    function prevPage() {
+      if (currentPage > 1) {
+        currentPage--;
+        displayResults();
+      }
+    }
+
+    function sortResults() {
+      const sortBy = document.getElementById('sortSelect').value;
+      if (sortBy === 'price') {
+        results.sort((a, b) => a.price - b.price);
+      } else if (sortBy === 'distance') {
+        results.sort((a, b) => a.distance - b.distance);
+      }
+      currentPage = 1;
+      displayResults();
+    }
+
+    function showError(error) {}
+
+    function getDistance(lat1, lon1, lat2, lon2) {
+      const toRad = x => x * Math.PI / 180;
+      const R = 3958.8;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function initMap(lat, lon) {
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat, lng: lon },
+        zoom: 12,
+      });
+
+      new google.maps.Marker({
+        position: { lat, lng: lon },
+        map,
+        title: "You Are Here",
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 12,
+          fillColor: "#007BFF",
+          fillOpacity: 1,
+          strokeWeight: 3,
+          strokeColor: "#FFFFFF"
+        }
+      });
+    }
+
+    
+    function addMarkers() {
+      markers = results.map((store) => new google.maps.Marker({ position: { lat: store.lat, lng: store.lon }, map, title: store.name }));
+    }
+  </script>
+
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBWLj7oVCt8GcZpTm6U4-pOXYXEJkvzhBI"></script>
+
+</body>
+</html>
