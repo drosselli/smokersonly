@@ -160,6 +160,7 @@
       fetch(proxyURL)
         .then(response => response.json())
         .then(data => {
+          console.log("Full API Response:", data);
           document.getElementById('spinner').style.display = 'none';
           results = data.results.map((store, index) => ({
             id: index,
