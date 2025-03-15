@@ -25,9 +25,13 @@
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
+      gtag('consent', 'default', {
+        ad_storage: 'denied',
+        analytics_storage: 'granted'
+      });
       gtag('js', new Date());
-      gtag('config', 'G-1CWM0H3NK5');
-    </script>
+      gtag('config', 'G-1CWM0H3NK5', { anonymize_ip: true });
+    </script>    
   
     <style>
       html, body {
